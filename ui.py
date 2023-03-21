@@ -22,6 +22,7 @@ outputTranslatedFile: File = None
 outputTranscriptedText: Textbox = None
 outputTranslatedText: Textbox = None
 outputDetectedLanguageText: Textbox = None
+outputSummarizedText: Textbox = None
 outputSelectedModel = None
 
 submitButton: Button = None
@@ -71,14 +72,36 @@ def fetchLanguageCode(index: int) -> str:
     result = keys[index]
     return result
 
+def performSummarization(article: str, sourceLanguage:str, targetLanguage:str) -> str:
+    """_summary_
+
+    Args:
+        article (str): _description_
+
+    Returns:
+        str: _description_
+    """
+    translation = article
+    #Perform the translation to english
+    if (sourceLanguage != "en"):
+        translation = performTranslation(article, sourceLanguage, "en")
+    #Perform the summarization
+    summarizer = pipeline("summarization",model="sshleifer/distilbart-cnn-12-6")
+    summary = summarizer(translation, max_length=512, min_length=30)
+    result=summary[0]['summary_text']
+    #Perform the translation to the target language
+    if (targetLanguage != "en"):
+        result = performTranslation(result, "en", targetLanguage)
+    return result
+
 
 def mainFunction(selectedModel, inputVideo):
     targetLanguage = fetchLanguageCode(selectedModel)
     outputAudioFilePath = performSoundExtraction(inputVideo)
     transcription = performSoundTranscription(outputAudioFilePath)
-    translation = performTranslation(transcription[1], transcription[2], targetLanguage)       
-    return translation[2], outputAudioFilePath, transcription[0], translation[0], transcription[1], transcription[2], translation[1]
-
+    translation = performTranslation(transcription[1], transcription[2], targetLanguage)   
+    summarization = performSummarization(article=transcription[1],sourceLanguage=transcription[2],targetLanguage=targetLanguage)   
+    return translation[2], outputAudioFilePath, transcription[0], translation[0], transcription[1], transcription[2], translation[1],summarization
 
 with gr.Blocks() as demo:
     # Inputs
@@ -97,9 +120,11 @@ with gr.Blocks() as demo:
         outputSelectedModel = gr.Textbox(label="Selected model")
     with gr.Row():
         outputTranscriptedText = gr.Textbox(
-            label="Transcripted text", lines=10, max_lines=20)
+            label="Transcripted text", lines=10, max_lines=10)
         outputTranslatedText = gr.Textbox(
-            label="Translated text", lines=10, max_lines=20)
+            label="Translated text", lines=10, max_lines=10)
+    with gr.Row():
+        outputSummarizedText = gr.Textbox(label = "Summarized text" , lines=3, max_lines=3)
     with gr.Row():
         submitButton = gr.Button()
         submitButton.click(fn=mainFunction, inputs=[
@@ -109,6 +134,7 @@ with gr.Blocks() as demo:
                                                       outputTranslatedFile,
                                                       outputTranscriptedText,
                                                       outputDetectedLanguageText,
-                                                      outputTranslatedText])
-
+                                                      outputTranslatedText,
+                                                      outputSummarizedText])
+        
 demo.launch(debug=True,server_port=8080,server_name="0.0.0.0")
