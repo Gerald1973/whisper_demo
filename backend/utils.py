@@ -3,8 +3,36 @@ from nltk.tokenize import sent_tokenize
 
 __MAX_TOKENS__ = 256
 
-def split_in_segments(text="",language="English") -> list[str]:
-    #nltk.download()
+EUROPEAN_LANGUAGES = {
+    "bg": "Bulgarian",
+    "cs": "Czech",
+    "da": "Danish",
+    "de": "German",
+    "el": "Greek",
+    "en": "English",
+    "es": "Spanish",
+    "et": "Estonian",
+    "fi": "Finnish",
+    "fr": "French",
+    "ga": "Irish",
+    "hr": "Croatian",
+    "hu": "Hungarian",
+    "it": "Italian",
+    "lt": "Lithuanian",
+    "lv": "Latvian",
+    "mt": "Maltese",
+    "nl": "Dutch",
+    "pl": "Polish",
+    "pt": "Portuguese",
+    "ro": "Romanian",
+    "sk": "Slovak",
+    "sl": "Slovenian",
+    "sv": "Swedish"
+}
+
+
+def split_in_segments(text="", language="English") -> list[str]:
+    # nltk.download()
     tokens = 0
     mystring = list()
     segments = []
@@ -20,3 +48,7 @@ def split_in_segments(text="",language="English") -> list[str]:
     if mystring:
         segments.append(" ".join(mystring))
     return (segments)
+
+def writeFile(fileName: str, article: str):
+    with open(fileName, "w") as file:
+        file.write(article)

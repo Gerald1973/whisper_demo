@@ -1,26 +1,41 @@
 import whisper
 import torch
-
+from . import utils
 
 class SoundTranscriptor():
-    def __init__(this):
-        this.audioFile = ""
-        this.textFile = ""
+   
+    def __init__(this, audioFile: str, textFile: str):
+        """_summary_
+
+        Args:
+            this (_type_): _description_
+            audioFile (str): audioFile path
+            textFile (str): translated file path
+        """
+        this.audioFile = audioFile
+        this.outputFileName = textFile
 
     def setAudioFile(this, audioFile):
         this.audioFile = audioFile
 
     def setTextFile(this, textFile):
-        this.textFile = textFile
+        this.outputFileName = textFile
 
     def transcribeByDefault(this):
         model = whisper.load_model("small")
-        audio = whisper.load_audio(this.audioFile)
+        whisper.load_audio(this.audioFile)
         result = model.transcribe(this.audioFile)
         print(f'Transcription : {result["text"]}')
 
-    def transcribe(this)-> tuple[str, str]:
-        print()
+    def transcribe(this)-> tuple[str, str, str]:
+        """_summary_
+
+        Args:
+            this (_type_): _description_
+
+        Returns:
+            tuple[str, str, str]: 0 => outputFileName, 1 => transcription, 2 => detectedLanguage
+        """
         if torch.cuda.is_available():
             print("CUDA is available, we will use the GPU.")
             DEVICE = "cuda"
@@ -48,15 +63,10 @@ class SoundTranscriptor():
             model=model, audio=audiofull, verbose=False, **options)
         transcription = result["text"]
         print(transcription)
-
-        with open(this.textFile, "w") as file:
-            file.write(transcription)
-        
-        return this.textFile, transcription, detectedLanguage
-
+        utils.writeFile(this.outputFileName, transcription)
+        return this.outputFileName, transcription, detectedLanguage
 
     def translate(this):
-        print()
         if torch.cuda.is_available():
             print("CUDA is available, we will use the GPU.")
             DEVICE = "cuda"

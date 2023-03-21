@@ -5,6 +5,7 @@ from gradio.components import Button, Dropdown, Video, File, Textbox
 from backend import utils
 from backend.SoundExtractor import SoundExtractor
 from backend.SoundTranscriptor import SoundTranscriptor
+from backend.HelsinkiTranslator import HelsinkyTranslator
 import time
 
 
@@ -14,82 +15,69 @@ import time
 
 inputSelectedModel: Dropdown = None
 inputVideo: Video = None
+
 outputAudioFile: File = None
 outputTextFile: File = None
+outputTranslatedFile: File = None
 outputTranscriptedText: Textbox = None
 outputTranslatedText: Textbox = None
 outputDetectedLanguageText: Textbox = None
-outSelectedModel = None
+outputSelectedModel = None
+
 submitButton: Button = None
 translationPipeline: TranslationPipeline = None
 soundExtractor: SoundExtractor = None
 soundTranscriptor: SoundTranscriptor = None
 
-modelInputs = [
-    "Helsinki-NLP/opus-mt-en-fr",
-    "Helsinki-NLP/opus-mt-fr-en",
-    "Helsinki-NLP/opus-mt-es-fr",
-    "Helsinki-NLP/opus-mt-fr-es",
-    "Helsinki-NLP/opus-mt-fr-bg",
-    "Helsinki-NLP/opus-mt-fr-de",
-    "Helsinki-NLP/opus-mt-fr-en",
-    "Helsinki-NLP/opus-mt-fr-hr",
-    "Helsinki-NLP/opus-mt-fr-it",
-    "Helsinki-NLP/opus-mt-fr-pl",
-    "Helsinki-NLP/opus-mt-fr-pt",
-    "Helsinki-NLP/opus-mt-fr-ro",
-    "Helsinki-NLP/opus-mt-fr-ru",
-    "Helsinki-NLP/opus-mt-fr-sv",
-    "Helsinki-NLP/opus-mt-fr-tr",
-    "Helsinki-NLP/opus-mt-fr-uk",
-    "Helsinki-NLP/opus-mt-fr-zh",
-    "t5-small",
-    "t5-large"]
 
-
-def performSoundExtraction(path: str) -> str:
-    soundExtractor = SoundExtractor()
-    soundExtractor.setVideoFile(path)
-    soundExtractor.setAudioFile(f"audio_out_{time.time()}.mp3")
+def performSoundExtraction(videoFilePath: str) -> str:
+    """_summary_
+    Returns:
+        str: the mp3 file path
+    """
+    soundExtractor = SoundExtractor(
+        videoFilePath, f"audio_out_{time.time()}.mp3")
     return soundExtractor.extractAudio()
 
 
-def performSoundTranscription(pathAudioFile: str) -> tuple[str: str, str: str, str: str]:
-    soundTranscriptor = SoundTranscriptor()
-    soundTranscriptor.setAudioFile(pathAudioFile)
-    soundTranscriptor.setTextFile(f"text_out_{time.time()}.txt")
+def performSoundTranscription(pathAudioFile: str) -> tuple[str, str, str]:
+    """_summary_
+
+    Returns:
+        tuple[str, str, str]: 0 => outputFileName, 1 => transcription, 2 => detectedLanguage
+    """
+    soundTranscriptor = SoundTranscriptor(
+        pathAudioFile, f"transcription_out_{time.time()}.txt")
     return soundTranscriptor.transcribe()
 
 
+def performTranslation(article: str, sourceLanguage: str, targetLanguage: str) -> tuple[str, str, str]:
+    """_summary_
+
+    Args:
+        article (str): _description_
+
+    Returns:
+        tuple[str, str]: 0 => outputFileName, 1 => translation, 2 => model
+    """
+    outputFileName = f"translation_out_{sourceLanguage}_{targetLanguage}_{time.time()}.txt"
+    helsinkyTranslator = HelsinkyTranslator(
+        article, sourceLanguage, targetLanguage, outputFileName)
+    return helsinkyTranslator.translate()
+
+
+def fetchLanguageCode(index: int) -> str:
+    keys = list(utils.EUROPEAN_LANGUAGES.keys())
+    result = keys[index]
+    return result
+
+
 def mainFunction(selectedModel, inputVideo):
-    print(selectedModel)
-    outputFilePath = performSoundExtraction(inputVideo)
-    textFileText = performSoundTranscription(outputFilePath)
-    translation = 'no model selected'
-    if selectedModel:
-        translation = ''
-        translator = pipeline(task="translation", model=selectedModel)
-        if (textFileText[2] == "fr"):
-            sourceLanguage = "french"
-        elif (textFileText[2] == "en"):
-            sourceLanguage = "english"
-        elif (textFileText[2] == "es"):
-            sourceLanguage = "spanish"
-        elif (textFileText[2] == "de"):
-            sourceLanguage = "german"
-        else:
-            sourceLanguage = "english"
-        segments = utils.split_in_segments(
-            textFileText[1], language=sourceLanguage)
-        counter = 0
-        for segment in segments:
-            tmp = translator(segment)[0]
-            if tmp:
-                translatedSentence = tmp['translation_text']
-                translation = translation + translatedSentence
-                print(f"Translated sentence {counter}: {translatedSentence}")
-                counter += 1
-    return selectedModel, outputFilePath, textFileText[0], textFileText[1], textFileText[2], translation
+    targetLanguage = fetchLanguageCode(selectedModel)
+    outputAudioFilePath = performSoundExtraction(inputVideo)
+    transcription = performSoundTranscription(outputAudioFilePath)
+    translation = performTranslation(transcription[1], transcription[2], targetLanguage)       
+    return translation[2], outputAudioFilePath, transcription[0], translation[0], transcription[1], transcription[2], translation[1]
 
 
 with gr.Blocks() as demo:
@@ -97,24 +85,30 @@ with gr.Blocks() as demo:
     with gr.Row():
         inputVideo = gr.Video(label="Video")
     with gr.Row():
-        inputSelectedModel = gr.inputs.Dropdown(
-            modelInputs, label="Select your translation model")
+        inputSelectedModel = gr.Dropdown(
+            type="index",
+            choices=list(utils.EUROPEAN_LANGUAGES.values()), label="Select your target language")
     with gr.Column():
         outputAudioFile = gr.File(label="Extracted audio file")
         outputTextFile = gr.File(label="Transcripted text file")
-        outputDetectedLanguageText = gr.Textbox(label="Detected language", max_lines=1, lines=1)
-        outSelectedModel = gr.outputs.Textbox(label="Selected model")
+        outputTranslatedFile = gr.File(label="Translated text file")
+        outputDetectedLanguageText = gr.Textbox(
+            label="Detected language", max_lines=1, lines=1)
+        outputSelectedModel = gr.Textbox(label="Selected model")
     with gr.Row():
-        outputTranscriptedText = gr.Textbox(label="Transcripted text", lines=10, max_lines=20)
-        outputTranslatedText = gr.Textbox(label="Translated text", lines=10, max_lines=20)
+        outputTranscriptedText = gr.Textbox(
+            label="Transcripted text", lines=10, max_lines=20)
+        outputTranslatedText = gr.Textbox(
+            label="Translated text", lines=10, max_lines=20)
     with gr.Row():
         submitButton = gr.Button()
         submitButton.click(fn=mainFunction, inputs=[
-            inputSelectedModel, inputVideo], outputs=[outSelectedModel,
+            inputSelectedModel, inputVideo], outputs=[outputSelectedModel,
                                                       outputAudioFile,
                                                       outputTextFile,
+                                                      outputTranslatedFile,
                                                       outputTranscriptedText,
                                                       outputDetectedLanguageText,
                                                       outputTranslatedText])
 
-demo.launch(debug=True)
+demo.launch(debug=True,server_port=8080,server_name="0.0.0.0")
