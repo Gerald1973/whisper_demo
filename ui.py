@@ -84,14 +84,14 @@ def performSummarization(article: str, sourceLanguage:str, targetLanguage:str) -
     translation = article
     #Perform the translation to english
     if (sourceLanguage != "en"):
-        translation = performTranslation(article, sourceLanguage, "en")
+        translation = performTranslation(article, sourceLanguage, "en")[1]
     #Perform the summarization
     summarizer = pipeline("summarization",model="sshleifer/distilbart-cnn-12-6")
     summary = summarizer(translation, max_length=512, min_length=30)
     result=summary[0]['summary_text']
     #Perform the translation to the target language
     if (targetLanguage != "en"):
-        result = performTranslation(result, "en", targetLanguage)
+        result = performTranslation(result, "en", targetLanguage)[1]
     return result
 
 
