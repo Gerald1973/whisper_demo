@@ -31,22 +31,26 @@ EUROPEAN_LANGUAGES = {
 }
 
 
-def split_in_segments(text="", language="English") -> list[str]:
+def split_in_segments(text="", language="english") -> list[str]:
     # nltk.download()
     tokens = 0
     mystring = list()
     segments = []
-    sentences = sent_tokenize(text=text, language=language)
-    for sentence in sentences:
-        numberOfTokens = len(sentence.split())
-        tokens += numberOfTokens
-        mystring.append(str(sentence).strip())
-        if tokens > __MAX_TOKENS__:
+    try:
+        sentences = sent_tokenize(text=text, language=language)
+        for sentence in sentences:
+            numberOfTokens = len(sentence.split())
+            tokens += numberOfTokens
+            mystring.append(str(sentence).strip())
+            if tokens > __MAX_TOKENS__:
+                segments.append(" ".join(mystring))
+                mystring = []
+                tokens = 0
+        if mystring:
             segments.append(" ".join(mystring))
-            mystring = []
-            tokens = 0
-    if mystring:
-        segments.append(" ".join(mystring))
+    except :
+        print(f"!!! NO PRETRAINED MODEL FOR {language} !!!")
+        segments = text.split(". ") 
     return (segments)
 
 def writeFile(fileName: str, article: str):

@@ -1,13 +1,13 @@
-import gradio as gr
-import whisper
-from transformers import pipeline, TranslationPipeline
-from gradio.components import Button, Dropdown, Video, File, Textbox
-from backend import utils
-from backend.SoundExtractor import SoundExtractor
-from backend.SoundTranscriptor import SoundTranscriptor
-from backend.HelsinkiTranslator import HelsinkyTranslator
 import time
 
+import gradio as gr
+from gradio.components import Button, Dropdown, File, Textbox, Video
+from transformers import TranslationPipeline, pipeline
+
+from backend import utils
+from backend.HelsinkiTranslator import HelsinkyTranslator
+from backend.SoundExtractor import SoundExtractor
+from backend.SoundTranscriptor import SoundTranscriptor
 
 # See
 # https://huggingface.co/Helsinki-NLP
@@ -29,6 +29,8 @@ submitButton: Button = None
 translationPipeline: TranslationPipeline = None
 soundExtractor: SoundExtractor = None
 soundTranscriptor: SoundTranscriptor = None
+
+__MAX_NUMBER_OF_TOKENS__ = 512
 
 
 def performSoundExtraction(videoFilePath: str) -> str:
@@ -52,19 +54,19 @@ def performSoundTranscription(pathAudioFile: str) -> tuple[str, str, str]:
     return soundTranscriptor.transcribe()
 
 
-def performTranslation(article: str, sourceLanguage: str, targetLanguage: str) -> tuple[str, str, str]:
+def performTranslation(article: str, sourceLanguage: str, targetLanguage: str) -> tuple[str, str]:
     """_summary_
 
     Args:
         article (str): _description_
 
     Returns:
-        tuple[str, str]: 0 => outputFileName, 1 => translation, 2 => model
+        tuple[str, str]:  0 => translation, 1 => model name
     """
-    outputFileName = f"translation_out_{sourceLanguage}_{targetLanguage}_{time.time()}.txt"
     helsinkyTranslator = HelsinkyTranslator(
-        article, sourceLanguage, targetLanguage, outputFileName)
-    return helsinkyTranslator.translate()
+        article, sourceLanguage, targetLanguage)
+    results = helsinkyTranslator.translate()
+    return results[0], results[1]
 
 
 def fetchLanguageCode(index: int) -> str:
@@ -72,7 +74,8 @@ def fetchLanguageCode(index: int) -> str:
     result = keys[index]
     return result
 
-def performSummarization(article: str, sourceLanguage:str, targetLanguage:str) -> str:
+
+def performSummarization(article: str, sourceLanguage: str, targetLanguage: str) -> str:
     """_summary_
 
     Args:
@@ -81,27 +84,53 @@ def performSummarization(article: str, sourceLanguage:str, targetLanguage:str) -
     Returns:
         str: _description_
     """
-    translation = article
-    #Perform the translation to english
+
+    # Perform the translation to english
+    result = ""
     if (sourceLanguage != "en"):
-        translation = performTranslation(article, sourceLanguage, "en")[1]
-    #Perform the summarization
-    summarizer = pipeline("summarization",model="sshleifer/distilbart-cnn-12-6")
-    summary = summarizer(translation, max_length=512, min_length=30)
-    result=summary[0]['summary_text']
-    #Perform the translation to the target language
+        translation = performTranslation(article, sourceLanguage, "en")[0]
+    else:
+        translation = article
+    segments = utils.split_in_segments(translation)
+    summarizer = pipeline(
+        "summarization", model="philschmid/bart-large-cnn-samsum")
+    print("Summarizing")
+    print("===========")
+    for segment in segments:
+        print(segment)
+        print("================================================================================")
+        result = result + summarizer(segment)[0]['summary_text']
+
+    # Perform the translation to the target language
     if (targetLanguage != "en"):
-        result = performTranslation(result, "en", targetLanguage)[1]
+        tmpResult = ''
+        segments = utils.split_in_segments(
+            result, language=utils.EUROPEAN_LANGUAGES[targetLanguage].lower())
+        for segment in segments:
+            tmpResult = tmpResult + \
+                performTranslation(segment, "en", targetLanguage)[0]
+        result = tmpResult
     return result
+
+
+def writeTranslationFile(sourceLanguage: str, targetLanguage: str, article:str) -> str:
+    translationFileName = f"translation_out_{sourceLanguage}_{targetLanguage}_{time.time()}.txt"
+    utils.writeFile(translationFileName, article)
+    print(f"Translation file written: {translationFileName}")
+    return translationFileName
 
 
 def mainFunction(selectedModel, inputVideo):
     targetLanguage = fetchLanguageCode(selectedModel)
     outputAudioFilePath = performSoundExtraction(inputVideo)
     transcription = performSoundTranscription(outputAudioFilePath)
-    translation = performTranslation(transcription[1], transcription[2], targetLanguage)   
-    summarization = performSummarization(article=transcription[1],sourceLanguage=transcription[2],targetLanguage=targetLanguage)   
-    return translation[2], outputAudioFilePath, transcription[0], translation[0], transcription[1], transcription[2], translation[1],summarization
+    translation = performTranslation(
+        transcription[1], transcription[2], targetLanguage)
+    summarization = performSummarization(
+        article=transcription[1], sourceLanguage=transcription[2], targetLanguage=targetLanguage)
+    translationFileName = writeTranslationFile(transcription[2],targetLanguage,translation[0])
+    return translation[1], outputAudioFilePath, transcription[0], translationFileName, transcription[1], transcription[2], translation[0], summarization
+
 
 with gr.Blocks() as demo:
     # Inputs
@@ -124,7 +153,8 @@ with gr.Blocks() as demo:
         outputTranslatedText = gr.Textbox(
             label="Translated text", lines=10, max_lines=10)
     with gr.Row():
-        outputSummarizedText = gr.Textbox(label = "Summarized text" , lines=3, max_lines=3)
+        outputSummarizedText = gr.Textbox(
+            label="Summarized text", lines=3, max_lines=3)
     with gr.Row():
         submitButton = gr.Button()
         submitButton.click(fn=mainFunction, inputs=[
@@ -136,5 +166,5 @@ with gr.Blocks() as demo:
                                                       outputDetectedLanguageText,
                                                       outputTranslatedText,
                                                       outputSummarizedText])
-        
-demo.launch(debug=True,server_port=8080,server_name="0.0.0.0")
+
+demo.launch(debug=True, server_port=8080, server_name="0.0.0.0")

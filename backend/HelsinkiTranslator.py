@@ -1,18 +1,16 @@
 from transformers import pipeline, TranslationPipeline
 import time
-from . import utils
-
+from backend import utils 
 
 class HelsinkyTranslator:
 
-    def __init__(this, article: str, sourceLanguage: str, targetLanguage: str, outputFileName: str):
+    def __init__(this, article: str, sourceLanguage: str, targetLanguage: str):
         """
-            article: str, sourceLanguage: str, targetLanguage: str, outputFileName: str
+            article: str, sourceLanguage: str, targetLanguage: str
         """
         this.article = article
         this.sourceLanguage = sourceLanguage
         this.targetLanguage = targetLanguage
-        this.outputFileName = outputFileName
 
     def getModelName(this) -> str:
         return f"Helsinki-NLP/opus-mt-{this.sourceLanguage}-{this.targetLanguage}"
@@ -26,22 +24,19 @@ class HelsinkyTranslator:
     def setTargetLanguage(this, targetLanguage):
         this.targetLanguage = targetLanguage
 
-    def setOutputFileName(this, outputFileName):
-        this.outputFileName = outputFileName
-
     def __segmentize(this) -> str:
         segments = utils.split_in_segments(
             this.article, language=utils.EUROPEAN_LANGUAGES[this.sourceLanguage].lower())
         return segments
 
-    def translate(this) -> tuple[str, str, str]:
+    def translate(this) -> tuple[str, str]:
         """_summary_
 
         Args:
             this (_type_): _description_
 
         Returns:
-            tuple[str, str, str]: 0 => outputFileName, 1 => translation, 2 => model
+            tuple[str, str]: 0 => translation, 1 => model
         """
         translation = ''
         model = this.getModelName()
@@ -60,8 +55,5 @@ class HelsinkyTranslator:
                         f"Translated sentence {counter}: {translatedSentence}")
                     counter += 1
         except:
-            this.outputFileName = f"error_{this.sourceLanguage}_{this.targetLanguage}_{time.time()}.txt"
             translation = f"Error: model {model} not available"
-        finally:
-            utils.writeFile(this.outputFileName, translation)
-        return this.outputFileName, translation, model
+        return translation, model
