@@ -15,6 +15,12 @@ Whisper est un modèle de traitement automatique de la parole développé par Op
 <https://www.assemblyai.com/blog/how-to-run-openais-whisper-speech-recognition-model/>
 <https://beta.openai.com/docs/api-reference?lang=python>
 
+# Python libraries to install
+
+```bash
+pip3 install PyPDF2
+```
+
 ## Word Error rate
 
 ### Définition

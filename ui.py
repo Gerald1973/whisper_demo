@@ -8,6 +8,7 @@ from backend import utils
 from backend.HelsinkiTranslator import HelsinkyTranslator
 from backend.SoundExtractor import SoundExtractor
 from backend.SoundTranscriptor import SoundTranscriptor
+from backend.PdfExtractor import PdfExtractor
 
 # See
 # https://huggingface.co/Helsinki-NLP
@@ -28,6 +29,7 @@ outputSelectedModel = None
 submitButton: Button = None
 translationPipeline: TranslationPipeline = None
 soundExtractor: SoundExtractor = None
+pdfExtractor: PdfExtractor = None
 soundTranscriptor: SoundTranscriptor = None
 
 __MAX_NUMBER_OF_TOKENS__ = 512
@@ -113,29 +115,49 @@ def performSummarization(article: str, sourceLanguage: str, targetLanguage: str)
     return result
 
 
-def writeTranslationFile(sourceLanguage: str, targetLanguage: str, article:str) -> str:
+def writeTranslationFile(sourceLanguage: str, targetLanguage: str, article: str) -> str:
     translationFileName = f"translation_out_{sourceLanguage}_{targetLanguage}_{time.time()}.txt"
     utils.writeFile(translationFileName, article)
     print(f"Translation file written: {translationFileName}")
     return translationFileName
 
 
-def mainFunction(selectedModel, inputVideo):
+def performPdfExtraction(pdfFilePath: str) -> str:
+    pdfExtractor = PdfExtractor(
+        pdfFilePath, f"transcription_out_{time.time()}.txt")
+    return pdfExtractor.extractText()
+
+
+def mainFunction(selectedModel, inputVideo, inputPdf):
     targetLanguage = fetchLanguageCode(selectedModel)
-    outputAudioFilePath = performSoundExtraction(inputVideo)
-    transcription = performSoundTranscription(outputAudioFilePath)
-    translation = performTranslation(
-        transcription[1], transcription[2], targetLanguage)
-    summarization = performSummarization(
-        article=transcription[1], sourceLanguage=transcription[2], targetLanguage=targetLanguage)
-    translationFileName = writeTranslationFile(transcription[2],targetLanguage,translation[0])
-    return translation[1], outputAudioFilePath, transcription[0], translationFileName, transcription[1], transcription[2], translation[0], summarization
+    outputAudioFilePath = "None"
+    transcription = ["None", "None", "None"]
+    translation = ["None", "None"]
+    summarization  = "None"
+    translationFileName = "None"
+
+    if (targetLanguage):
+        if (inputVideo):
+            outputAudioFilePath = performSoundExtraction(inputVideo)
+            transcription = performSoundTranscription(outputAudioFilePath)
+        elif (inputPdf):
+            transcription = performPdfExtraction(inputPdf.name)
+        translation = performTranslation(
+            transcription[1], transcription[2], targetLanguage)
+        # summarization = performSummarization(
+        #     article=transcription[1], sourceLanguage=transcription[2], targetLanguage=targetLanguage)
+        summarization = "not yet"
+        translationFileName = writeTranslationFile(
+            transcription[2], targetLanguage, translation[0])
+        return translation[1], outputAudioFilePath, transcription[0], translationFileName, transcription[1], transcription[2], translation[0], summarization
 
 
 with gr.Blocks() as demo:
     # Inputs
     with gr.Row():
-        inputVideo = gr.Video(label="Video")
+        with gr.Column():
+            inputVideo = gr.Video(label="Video")
+            inputPdf = gr.File(label="PDF")
     with gr.Row():
         inputSelectedModel = gr.Dropdown(
             type="index",
@@ -158,13 +180,13 @@ with gr.Blocks() as demo:
     with gr.Row():
         submitButton = gr.Button()
         submitButton.click(fn=mainFunction, inputs=[
-            inputSelectedModel, inputVideo], outputs=[outputSelectedModel,
-                                                      outputAudioFile,
-                                                      outputTextFile,
-                                                      outputTranslatedFile,
-                                                      outputTranscriptedText,
-                                                      outputDetectedLanguageText,
-                                                      outputTranslatedText,
-                                                      outputSummarizedText])
+            inputSelectedModel, inputVideo, inputPdf], outputs=[outputSelectedModel,
+                                                                outputAudioFile,
+                                                                outputTextFile,
+                                                                outputTranslatedFile,
+                                                                outputTranscriptedText,
+                                                                outputDetectedLanguageText,
+                                                                outputTranslatedText,
+                                                                outputSummarizedText])
 
 demo.launch(debug=True, server_port=8080, server_name="0.0.0.0")
