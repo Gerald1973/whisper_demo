@@ -1,6 +1,12 @@
 # Whisper_demo
 
-Voici un exemple de code Python pour extraire l'audio d'un fichier vidéo au format mp4, transcrire le contenu en utilisant le modèle Whisper d'OpenAI, puis intégrer les résultats de transcription avec le modèle de génération de langage CHATGPT-3 pour obtenir un résumé.
+Cette application est un prototype qui a été développé initialement pour transcrire le son d'un fichier vidéo au format mp4. Cependant, elle a évolué pour devenir un outil polyvalent capable d'extraire le texte d'un document PDF. Pour effectuer la transcription d'une source vidéo, l'application utilise Whisper d'OpenAI, tandis que l'extraction de texte à partir de documents PDF est réalisée à l'aide d'une librairie Python.
+
+En outre, cette application propose également des fonctionnalités de traduction et de résumé. Pour cela, elle exploite différents modèles disponibles sur HuggingFace. Grâce à ces fonctionnalités supplémentaires, l'application est en mesure de répondre à divers besoins liés à la manipulation de textes et de médias.
+
+This application is a prototype that was initially designed to transcribe the sound of an mp4 video file. However, it has evolved into a versatile tool capable of extracting text from a PDF document. To perform transcription from a video source, the application uses Whisper from OpenAI, while text extraction from PDF documents is done using a Python library.
+
+In addition, this application also offers translation and summary features. To achieve this, it leverages different models available on HuggingFace. With these additional features, the application is able to meet various needs related to text and media manipulation.
 
 ## Introduction
 

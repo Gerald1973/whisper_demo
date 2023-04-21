@@ -1,7 +1,6 @@
+from transformers import (AutoTokenizer)
 import nltk
 from nltk.tokenize import sent_tokenize
-
-__MAX_TOKENS__ = 256
 
 EUROPEAN_LANGUAGES = {
     "bg": "Bulgarian",
@@ -30,28 +29,46 @@ EUROPEAN_LANGUAGES = {
     "sv": "Swedish"
 }
 
-
-def split_in_segments(text="", language="english") -> list[str]:
+def sentencize(text: str, maxTokens: int, language="english") -> list[str]:
     # nltk.download()
     tokens = 0
-    mystring = list()
-    segments = []
-    try:
-        sentences = sent_tokenize(text=text, language=language)
-        for sentence in sentences:
-            numberOfTokens = len(sentence.split())
-            tokens += numberOfTokens
-            mystring.append(str(sentence).strip())
-            if tokens > __MAX_TOKENS__:
-                segments.append(" ".join(mystring))
-                mystring = []
-                tokens = 0
-        if mystring:
-            segments.append(" ".join(mystring))
-    except :
-        print(f"!!! NO PRETRAINED MODEL FOR {language} !!!")
-        segments = text.split(". ") 
-    return (segments)
+    results = []
+    sentences = sent_tokenize(text=text, language=language)
+    tmpString = ""
+    for sentence in sentences:
+        numberOfTokens = len(sentence.split())
+        tokens += numberOfTokens
+        if tokens < maxTokens :
+            tmpSentence = str(sentence).strip()
+            tmpString = tmpString + " " + sentence
+        else :
+            results.append(tmpString)
+            tmpSentence = str(sentence).strip()
+            tmpString = tmpSentence
+            tokens = numberOfTokens
+    return results
+                
+def segmentize(modelName: str, text: str, maxTokens: int) -> list[str]:
+        results: list[str] = []
+        listOfTokens: list[list[str]] = []
+        tokenizer = AutoTokenizer.from_pretrained(modelName)
+        basicTokens: list[str] = tokenizer.tokenize(text)
+        numberOfTokens = len(basicTokens)
+        r = range(numberOfTokens)
+        tmp = ''
+        for i in r:
+            idxResult = i // maxTokens
+            if (i % maxTokens != 0):
+                listOfTokens[idxResult].append(basicTokens[i])
+            else:
+                tmp = basicTokens[i]
+                listOfTokens.append([])
+                listOfTokens[idxResult].append(tmp)
+        numberOfListOfTokens = len(listOfTokens)
+        for i in range(numberOfListOfTokens):
+             decodedToken: str = tokenizer.convert_tokens_to_string(listOfTokens[i]);
+             results.append(decodedToken)
+        return results
 
 def writeFile(fileName: str, article: str):
     with open(fileName, "w") as file:

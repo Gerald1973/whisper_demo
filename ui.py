@@ -9,6 +9,7 @@ from backend.HelsinkiTranslator import HelsinkyTranslator
 from backend.SoundExtractor import SoundExtractor
 from backend.SoundTranscriptor import SoundTranscriptor
 from backend.PdfExtractor import PdfExtractor
+from backend.Summarizer import Summarizer
 
 # See
 # https://huggingface.co/Helsinki-NLP
@@ -78,40 +79,17 @@ def fetchLanguageCode(index: int) -> str:
 
 
 def performSummarization(article: str, sourceLanguage: str, targetLanguage: str) -> str:
-    """_summary_
-
-    Args:
-        article (str): _description_
-
-    Returns:
-        str: _description_
-    """
-
-    # Perform the translation to english
-    result = ""
     if (sourceLanguage != "en"):
         translation = performTranslation(article, sourceLanguage, "en")[0]
     else:
         translation = article
-    segments = utils.split_in_segments(translation)
-    summarizer = pipeline(
-        "summarization", model="philschmid/bart-large-cnn-samsum")
-    print("Summarizing")
-    print("===========")
-    for segment in segments:
-        print(segment)
-        print("================================================================================")
-        result = result + summarizer(segment)[0]['summary_text']
-
+    #Perform summarization
+    summarizer = Summarizer(translation)
+    resultInEnglish = summarizer.summarize()
     # Perform the translation to the target language
     if (targetLanguage != "en"):
-        tmpResult = ''
-        segments = utils.split_in_segments(
-            result, language=utils.EUROPEAN_LANGUAGES[targetLanguage].lower())
-        for segment in segments:
-            tmpResult = tmpResult + \
-                performTranslation(segment, "en", targetLanguage)[0]
-        result = tmpResult
+        translator = HelsinkyTranslator(resultInEnglish, "en", targetLanguage)
+        result = translator.translate()
     return result
 
 
@@ -125,17 +103,15 @@ def writeTranslationFile(sourceLanguage: str, targetLanguage: str, article: str)
 def performPdfExtraction(pdfFilePath: str) -> str:
     pdfExtractor = PdfExtractor(
         pdfFilePath, f"transcription_out_{time.time()}.txt")
-    return pdfExtractor.extractText()
+    return pdfExtractor.extract()
 
 
 def mainFunction(selectedModel, inputVideo, inputPdf):
     targetLanguage = fetchLanguageCode(selectedModel)
-    outputAudioFilePath = "None"
+    outputAudioFilePath = None
     transcription = ["None", "None", "None"]
     translation = ["None", "None"]
-    summarization  = "None"
-    translationFileName = "None"
-
+    
     if (targetLanguage):
         if (inputVideo):
             outputAudioFilePath = performSoundExtraction(inputVideo)
@@ -144,12 +120,11 @@ def mainFunction(selectedModel, inputVideo, inputPdf):
             transcription = performPdfExtraction(inputPdf.name)
         translation = performTranslation(
             transcription[1], transcription[2], targetLanguage)
-        # summarization = performSummarization(
-        #     article=transcription[1], sourceLanguage=transcription[2], targetLanguage=targetLanguage)
-        summarization = "not yet"
+        summarization = performSummarization(
+            article=transcription[1], sourceLanguage=transcription[2], targetLanguage=targetLanguage)
         translationFileName = writeTranslationFile(
             transcription[2], targetLanguage, translation[0])
-        return translation[1], outputAudioFilePath, transcription[0], translationFileName, transcription[1], transcription[2], translation[0], summarization
+        return translation[1], outputAudioFilePath, transcription[0], translationFileName, transcription[1], transcription[2], translation[0], summarization[0]
 
 
 with gr.Blocks() as demo:
@@ -157,11 +132,16 @@ with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column():
             inputVideo = gr.Video(label="Video")
+        with gr.Column():
             inputPdf = gr.File(label="PDF")
     with gr.Row():
         inputSelectedModel = gr.Dropdown(
             type="index",
-            choices=list(utils.EUROPEAN_LANGUAGES.values()), label="Select your target language")
+            choices=list(utils.EUROPEAN_LANGUAGES.values()), 
+            label="Select your target language",
+            value="fr",
+
+            )
     with gr.Column():
         outputAudioFile = gr.File(label="Extracted audio file")
         outputTextFile = gr.File(label="Transcripted text file")

@@ -3,15 +3,17 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipe
 import PyPDF2
 import torch
 import json
-#re for regex
+# re for regex
 import re
+
 
 class PdfExtractor:
 
     def __init__(this, pdfFile, textFile):
         this.device = 0 if torch.cuda.is_available() else -1
         this.model_ckpt = "papluca/xlm-roberta-base-language-detection"
-        this.pipe = pipeline("text-classification", model=this.model_ckpt, device=this.device)
+        this.pipe = pipeline("text-classification",
+                             model=this.model_ckpt, device=this.device)
         this.pdfFile = pdfFile
         this.textFile = textFile
 
@@ -21,20 +23,20 @@ class PdfExtractor:
     def setTextFile(this, textFile):
         this.textFile = textFile
 
-    def predict_lang(this, text): 
+    def predict_lang(this, text):
         result = this.pipe(text)
         label = result[0]['label']
         lang_code = label.split('-')[0]
         return lang_code
 
-    def extractText(this) -> str:
+    def extract(this) -> tuple[str, str, str]:
         """_summary_
 
         Args:
             this (_type_): _description_
 
         Returns:
-            str: The text file path
+            tuple[str, str, str]: 0 => textfile path, 1 => extracted text, 2 => detected language
         """
         pdfFileObj = open(this.pdfFile, 'rb')
         pdfReader = PyPDF2.PdfReader(pdfFileObj)
