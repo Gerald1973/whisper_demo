@@ -139,7 +139,7 @@ with gr.Blocks() as demo:
             type="index",
             choices=list(utils.EUROPEAN_LANGUAGES.values()), 
             label="Select your target language",
-            value="fr",
+            value="French",
 
             )
     with gr.Column():
